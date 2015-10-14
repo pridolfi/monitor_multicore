@@ -73,7 +73,7 @@
 #include "ciaaPOSIX_string.h"   /* <= string header */
 #include "ciaak.h"              /* <= ciaa kernel header */
 #include "ciaaMulticore.h"      /* <= multicore lib header */
-#include "blinking_multicore.h" /* <= own header */
+#include "ciaa_multicore.h" /* <= own header */
 
 /*==================[macros and definitions]=================================*/
 

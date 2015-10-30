@@ -46,6 +46,7 @@
 /*==================[internal data definition]===============================*/
 
 static int32_t fd_in;
+static int32_t fd_out;
 static int32_t fd_uart;
 
 /*==================[external data definition]===============================*/
@@ -72,6 +73,7 @@ TASK(InitTaskMaster)
    ciaak_start();
 
    fd_in = ciaaPOSIX_open("/dev/dio/in/0", ciaaPOSIX_O_RDWR);
+   fd_out = ciaaPOSIX_open("/dev/dio/out/0", ciaaPOSIX_O_RDWR);
 
    fd_uart = ciaaPOSIX_open("/dev/serial/uart/1", ciaaPOSIX_O_RDWR);
 
@@ -92,7 +94,41 @@ TASK(CommTaskMaster)
 
    ciaaPOSIX_write(fd_uart, str, ciaaPOSIX_strlen(str));
 
+   if ( (inputs & 0x08) == 0) {
+      uint32_t * p = 0;
+      *p = 0; /* hard fault test! */
+   }
+
    TerminateTask();
+}
+
+TASK(TaskCheckSlave)
+{
+   EventMaskType ev;
+   uint8_t outputs;
+
+   SetRelAlarm(TimeoutSlave, 5000, 0);
+   WaitEvent(evSlaveAlive | evSlaveTimeout);
+   GetEvent(TaskCheckSlave, &ev);
+
+   if (ev & evSlaveAlive) {
+
+      CancelAlarm(TimeoutSlave);
+
+      ciaaPOSIX_read(fd_out, &outputs, 1);
+      outputs ^= 0x08;
+      ciaaPOSIX_write(fd_out, &outputs, 1);
+
+      ClearEvent(evSlaveAlive);
+   }
+
+   if (ev & evSlaveTimeout) {
+      outputs = 0x15;
+      ciaaPOSIX_write(fd_out, &outputs, 1);
+      ShutdownOS(0);
+   }
+
+   ChainTask(TaskCheckSlave);
 }
 
 /** @} doxygen end group definition */

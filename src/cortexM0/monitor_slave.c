@@ -90,6 +90,11 @@ TASK(PeriodicTaskSlave)
 
    ciaaPOSIX_read(fd_in, &inputs_now, 1);
 
+   if ( (inputs_now & 0x04) == 0) {
+      uint32_t * p = 0;
+      *p = 0; /* hard fault test! */
+   }
+
    if (inputs_now != inputs) {
       inputs = inputs_now;
 
@@ -119,6 +124,35 @@ TASK(LEDOffSlave)
    ciaaPOSIX_write(fd_out, &outputs, 1);
    ledflag = 0;
    TerminateTask();
+}
+
+TASK(TaskCheckMaster)
+{
+   EventMaskType ev;
+   uint8_t outputs;
+
+   SetRelAlarm(TimeoutMaster, 5000, 0);
+   WaitEvent(evMasterAlive | evMasterTimeout);
+   GetEvent(TaskCheckMaster, &ev);
+
+   if (ev & evMasterAlive) {
+
+      CancelAlarm(TimeoutMaster);
+
+      ciaaPOSIX_read(fd_out, &outputs, 1);
+      outputs ^= 0x10;
+      ciaaPOSIX_write(fd_out, &outputs, 1);
+
+      ClearEvent(evMasterAlive);
+   }
+
+   if (ev & evMasterTimeout) {
+      outputs = 0x2A;
+      ciaaPOSIX_write(fd_out, &outputs, 1);
+      ShutdownOS(0);
+   }
+
+   ChainTask(TaskCheckMaster);
 }
 
 /** @} doxygen end group definition */

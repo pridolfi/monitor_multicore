@@ -59,6 +59,11 @@ OSEK OSEK {
    EVENT = POSIXE;
    APPMODE = AppMode1;
 
+   EVENT = evMasterAlive;
+   EVENT = evSlaveAlive;
+   EVENT = evMasterTimeout;
+   EVENT = evSlaveTimeout;
+
    TASK InitTaskMaster {
       PRIORITY = 1;
       ACTIVATION = 1;
@@ -98,6 +103,38 @@ OSEK OSEK {
       CORE = 0;
    }
 
+   TASK TaskCheckSlave {
+      PRIORITY = 1;
+      ACTIVATION = 1;
+      STACK = 512;
+      TYPE = EXTENDED;
+      SCHEDULE = FULL;
+      RESOURCE = POSIXR;
+      EVENT = POSIXE;
+      EVENT = evSlaveAlive;
+      EVENT = evSlaveTimeout;
+      CORE = 0;
+      AUTOSTART = TRUE {
+         APPMODE = AppMode1;
+      }
+   }
+
+   TASK TaskCheckMaster {
+      PRIORITY = 1;
+      ACTIVATION = 1;
+      STACK = 512;
+      TYPE = EXTENDED;
+      SCHEDULE = FULL;
+      RESOURCE = POSIXR;
+      EVENT = POSIXE;
+      EVENT = evMasterAlive;
+      EVENT = evMasterTimeout;
+      CORE = 1;
+      AUTOSTART = TRUE {
+         APPMODE = AppMode1;
+      }
+   }
+
    TASK PeriodicTaskSlave {
       PRIORITY = 1;
       ACTIVATION = 1;
@@ -120,6 +157,52 @@ OSEK OSEK {
       CORE = 1;
    }
 
+   ALARM KeepAliveMaster {
+      COUNTER = HardwareCounterMaster;
+      ACTION = SETEVENT {
+         EVENT = evMasterAlive;
+         TASK = TaskCheckMaster;
+      }
+      AUTOSTART = TRUE {
+         APPMODE = AppMode1;
+         ALARMTIME = 0;
+         CYCLETIME = 1000;
+      }
+      CORE = 0;
+   }
+
+   ALARM TimeoutMaster {
+      COUNTER = HardwareCounterSlave;
+      ACTION = SETEVENT {
+         EVENT = evMasterTimeout;
+         TASK = TaskCheckMaster;
+      }
+      CORE = 1;
+   }
+
+   ALARM KeepAliveSlave {
+      COUNTER = HardwareCounterSlave;
+      ACTION = SETEVENT {
+         EVENT = evSlaveAlive;
+         TASK = TaskCheckSlave;
+      }
+      AUTOSTART = TRUE {
+         APPMODE = AppMode1;
+         ALARMTIME = 0;
+         CYCLETIME = 1000;
+      }
+      CORE = 1;
+   }
+
+   ALARM TimeoutSlave {
+      COUNTER = HardwareCounterMaster;
+      ACTION = SETEVENT {
+         EVENT = evSlaveTimeout;
+         TASK = TaskCheckSlave;
+      }
+      CORE = 0;
+   }
+
    ALARM ActivateLEDOffSlave {
       COUNTER = HardwareCounterSlave;
       ACTION = ACTIVATETASK {
@@ -129,7 +212,7 @@ OSEK OSEK {
    }
 
    COUNTER HardwareCounterSlave {
-      MAXALLOWEDVALUE = 1000;
+      MAXALLOWEDVALUE = 10000;
       TICKSPERBASE = 1;
       MINCYCLE = 1;
       TYPE = HARDWARE;
@@ -138,7 +221,7 @@ OSEK OSEK {
    };
 
    COUNTER HardwareCounterMaster {
-      MAXALLOWEDVALUE = 1000;
+      MAXALLOWEDVALUE = 10000;
       TICKSPERBASE = 1;
       MINCYCLE = 1;
       TYPE = HARDWARE;

@@ -43,7 +43,7 @@
 
 OSEK OSEK {
 
-   OS	ExampleOS {
+   OS MulticoreOS {
       STATUS = EXTENDED;
       ERRORHOOK = TRUE;
       PRETASKHOOK = FALSE;
@@ -56,11 +56,7 @@ OSEK OSEK {
    };
 
    RESOURCE = POSIXR;
-
    EVENT = POSIXE;
-
-   EVENT = RemoteEvent;
-
    APPMODE = AppMode1;
 
    TASK InitTaskMaster {
@@ -91,7 +87,7 @@ OSEK OSEK {
       CORE = 1;
    }
 
-   TASK PeriodicTaskMaster {
+   TASK CommTaskMaster {
       PRIORITY = 2;
       ACTIVATION = 1;
       STACK = 512;
@@ -102,48 +98,25 @@ OSEK OSEK {
       CORE = 0;
    }
 
-   TASK EventTaskSlave {
-      PRIORITY = 2;
-      ACTIVATION = 1;
-      STACK = 512;
-      TYPE = EXTENDED;
-      SCHEDULE = NON;
-      RESOURCE = POSIXR;
-      EVENT = POSIXE;
-      EVENT = RemoteEvent;
-      CORE = 1;
-      AUTOSTART = TRUE {
-         APPMODE = AppMode1;
-      }
-   }
-
    TASK PeriodicTaskSlave {
-      PRIORITY = 2;
+      PRIORITY = 1;
       ACTIVATION = 1;
       STACK = 512;
       TYPE = EXTENDED;
-      SCHEDULE = NON;
+      SCHEDULE = FULL;
       RESOURCE = POSIXR;
       EVENT = POSIXE;
       CORE = 1;
    }
 
    TASK LEDOffSlave {
-      PRIORITY = 2;
+      PRIORITY = 1;
       ACTIVATION = 1;
       STACK = 512;
       TYPE = EXTENDED;
       SCHEDULE = NON;
       RESOURCE = POSIXR;
       EVENT = POSIXE;
-      CORE = 1;
-   }
-
-   ALARM ActivatePeriodicTaskSlave {
-      COUNTER = HardwareCounterSlave;
-      ACTION = ACTIVATETASK {
-         TASK = PeriodicTaskSlave;
-      }
       CORE = 1;
    }
 
@@ -153,20 +126,6 @@ OSEK OSEK {
          TASK = LEDOffSlave;
       }
       CORE = 1;
-   }
-
-   ALARM SetRemoteEvent {
-      COUNTER = HardwareCounterMaster;
-      ACTION = SETEVENT {
-         TASK = EventTaskSlave;
-         EVENT = RemoteEvent;
-      }
-      AUTOSTART = TRUE {
-         APPMODE = AppMode1;
-         ALARMTIME = 0;
-         CYCLETIME = 300;
-      }
-      CORE = 0;
    }
 
    COUNTER HardwareCounterSlave {
@@ -193,6 +152,13 @@ OSEK OSEK {
       INTERRUPT = M0APP;
       CORE = 0;
    }
+
+   ISR UART2_IRQHandler {
+      INTERRUPT = UART2;
+      CATEGORY = 2;
+      PRIORITY = 0;
+      CORE = 0;
+   };
 
    ISR M4_IRQHandler {
       CATEGORY = 2;

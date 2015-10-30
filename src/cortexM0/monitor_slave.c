@@ -1,9 +1,5 @@
-/* Copyright 2014, Mariano Cerdeiro
- * Copyright 2014, 2015 Pablo Ridolfi
- * Copyright 2014, Juan Cecconi
- * Copyright 2014, Gustavo Muro
- *
- * This file is part of CIAA Firmware.
+/* Copyright 2015, Pablo Ridolfi
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,49 +29,17 @@
  *
  */
 
-/** \brief Blinking_echo example source file
- **
- ** This is a mini example of the CIAA Firmware.
- **
- **/
-
-/** \addtogroup CIAA_Firmware CIAA Firmware
- ** @{ */
-/** \addtogroup Examples CIAA Firmware Examples
- ** @{ */
-/** \addtogroup Blinking Blinking_echo example source file
- ** @{ */
-
-/*
- * Initials     Name
- * ---------------------------
- * MaCe         Mariano Cerdeiro
- * PR           Pablo Ridolfi
- * JuCe         Juan Cecconi
- * GMuro        Gustavo Muro
- * ErPe         Eric Pernia
- */
-
-/*
- * modification history (new versions first)
- * -----------------------------------------------------------
- * 20150831 v0.0.4   PR   first multicore version
- * 20150603 v0.0.3   ErPe change uint8 type by uint8_t
- *                        in line 172
- * 20141019 v0.0.2   JuCe add printf in each task,
- *                        remove trailing spaces
- * 20140731 v0.0.1   PR   first functional version
- */
-
 /*==================[inclusions]=============================================*/
+#include "monitor.h"            /* <= own header */
 #include "os.h"                 /* <= operating system header */
 #include "ciaaPOSIX_stdio.h"    /* <= device handler header */
 #include "ciaaPOSIX_string.h"   /* <= string header */
 #include "ciaak.h"              /* <= ciaa kernel header */
 #include "ciaaMulticore.h"      /* <= multicore lib header */
-#include "ciaa_multicore.h" /* <= own header */
 
 /*==================[macros and definitions]=================================*/
+
+#define LEDR 0x01
 
 /*==================[internal data declaration]==============================*/
 
@@ -83,71 +47,22 @@
 
 /*==================[internal data definition]===============================*/
 
-/** \brief File descriptor for digital output ports
- *
- * Device path /dev/dio/out/0
- */
 static int32_t fd_out;
+static int32_t fd_in;
+static uint8_t ledflag = 0;
 
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
 
 /*==================[external functions definition]==========================*/
-/** \brief Main function
- *
- * This is the main entry point of the software.
- *
- * \returns 0
- *
- * \remarks This function never returns. Return value is only to avoid compiler
- *          warnings or errors.
- */
+
 int main(void)
 {
-   /* First, start Cortex-M0 slave core.
-      Do not forget to create and download an image for this core!
-      In Makefile.mine:
-         BOARD    ?= edu_ciaa_nxp
-         -- or --
-         BOARD    ?= ciaa_nxp
-      Select the project blinking_multicore:
-         PROJECT  ?= examples$(DS)blinking_multicore
-
-      Then build and download:
-         $ make mcore
-         $ make mcore_download
-
-      Enjoy :-)
-   */
-
-   /* Starts the operating system in the Application Mode 1 */
-   /* This example has only one Application Mode */
    StartOS(AppMode1);
-
-   /* StartOs shall never returns, but to avoid compiler warnings or errors
-    * 0 is returned */
    return 0;
 }
 
-/** \brief Error Hook function
- *
- * This fucntion is called from the os if an os interface (API) returns an
- * error. Is for debugging proposes. If called this function triggers a
- * ShutdownOs which ends in a while(1).
- *
- * The values:
- *    OSErrorGetServiceId
- *    OSErrorGetParam1
- *    OSErrorGetParam2
- *    OSErrorGetParam3
- *    OSErrorGetRet
- *
- * will provide you the interface, the input parameters and the returned value.
- * For more details see the OSEK specification:
- * http://portal.osek-vdx.org/files/pdf/specs/os223.pdf
- *
- */
 void ErrorHook(void)
 {
    ciaaPOSIX_printf("ErrorHook was called\n");
@@ -155,40 +70,54 @@ void ErrorHook(void)
    ShutdownOS(0);
 }
 
-/** \brief Initial task
- *
- * This task is started automatically in the application mode 1.
- */
-TASK(InitTaskMaster)
+TASK(InitTaskSlave)
 {
-   /* init CIAA kernel and devices */
    ciaak_start();
 
-   /* open CIAA digital outputs */
    fd_out = ciaaPOSIX_open("/dev/dio/out/0", ciaaPOSIX_O_RDWR);
 
-   /* terminate task */
+   fd_in = ciaaPOSIX_open("/dev/dio/in/0", ciaaPOSIX_O_RDWR);
+
+   ActivateTask(PeriodicTaskSlave);
+
    TerminateTask();
 }
 
-/** \brief Periodic Task
- *
- * This task is started automatically every time that the alarm
- * ActivatePeriodicTask expires.
- *
+TASK(PeriodicTaskSlave)
+{
+   static uint8_t inputs;
+   uint8_t inputs_now, outputs;
+
+   ciaaPOSIX_read(fd_in, &inputs_now, 1);
+
+   if (inputs_now != inputs) {
+      inputs = inputs_now;
+
+      ActivateTask(CommTaskMaster);
+
+      ciaaPOSIX_read(fd_out, &outputs, 1);
+      outputs |= LEDR;
+      ciaaPOSIX_write(fd_out, &outputs, 1);
+
+      if (ledflag == 1) {
+         CancelAlarm(ActivateLEDOffSlave);
+      }
+
+      ledflag = 1;
+      SetRelAlarm(ActivateLEDOffSlave, 100, 0);
+   }
+   ChainTask(PeriodicTaskSlave);
+}
+
+/** \brief Task used to turn off the LED and also send and event
  */
-TASK(PeriodicTaskMaster)
+TASK(LEDOffSlave)
 {
    uint8_t outputs;
-
-   /* read outputs */
    ciaaPOSIX_read(fd_out, &outputs, 1);
-   /* blink output */
-   outputs ^= 0x20;
-   /* write outputs */
+   outputs &= ~LEDR;
    ciaaPOSIX_write(fd_out, &outputs, 1);
-
-   /* terminate task */
+   ledflag = 0;
    TerminateTask();
 }
 

@@ -123,7 +123,7 @@ TASK(TaskCheckSlave)
    }
 
    if (ev & evSlaveTimeout) {
-      outputs = 0x15;
+      outputs = 0x04;
       ciaaPOSIX_write(fd_out, &outputs, 1);
       ShutdownOS(0);
    }

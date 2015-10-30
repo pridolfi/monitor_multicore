@@ -147,7 +147,7 @@ TASK(TaskCheckMaster)
    }
 
    if (ev & evMasterTimeout) {
-      outputs = 0x2A;
+      outputs = 0x02;
       ciaaPOSIX_write(fd_out, &outputs, 1);
       ShutdownOS(0);
    }
